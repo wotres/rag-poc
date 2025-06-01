@@ -3,22 +3,19 @@ import pickle
 import shutil
 import fitz  # PyMuPDF
 import numpy as np
-import requests  # 외부 mock 서버 호출용
+import requests
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-DATA_PATH = "docs_data.pkl"  # docs + embeddings 같이 저장
+DATA_PATH = "docs_data.pkl"
 
-# mock LLM/임베딩 서버 주소
-MOCK_BASE = os.getenv("MOCK_SERVER", "http://localhost:8001")
+LLM_SERVICE_HOST = os.getenv("LLM_SERVICE_HOST", "http://0.0.0.0")
+LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", "8001")
 
-# docs: List[(path, content)]
-# embeddings: List[np.ndarray]
 docs: list[tuple[str, str]] = []
 embeddings: list[np.ndarray] = []
 
-# 기존 데이터 복원
 if os.path.exists(DATA_PATH):
     with open(DATA_PATH, "rb") as f:
         saved = pickle.load(f)
@@ -44,14 +41,11 @@ def extract_text_from_pdf(path: str) -> str:
 
 
 def fetch_embeddings(texts: list[str]) -> np.ndarray:
-    """
-    mock 서버의 /v1/embeddings 엔드포인트를 호출하여 임베딩을 가져옴
-    """
     payload = {"model": "all-MiniLM-L6-v2", "input": texts}
-    resp = requests.post(f"{MOCK_BASE}/v1/embeddings", json=payload)
+    url = f"{LLM_SERVICE_HOST}:{LLM_SERVICE_PORT}/v1/embeddings"
+    resp = requests.post(url, json=payload)
     resp.raise_for_status()
     data = resp.json()["data"]
-    # 리스트 순서대로 임베딩 추출
     return np.array([item["embedding"] for item in data])
 
 
@@ -66,7 +60,6 @@ def save_and_index(file_path: str) -> str:
     content = extract_text_from_pdf(dest)
     if not content.strip():
         return "PDF에서 텍스트를 추출할 수 없습니다."
-    # mock 서버로 임베딩 요청
     emb = fetch_embeddings([content])[0]
     docs.append((dest, content))
     embeddings.append(emb)
@@ -99,8 +92,6 @@ def query_rag(query: str, llm_fn, selected_filename: str = None):
                 prompt = f"# DocumentContext:\n{content}\n\nQuestion: {query}\nAnswer:"
                 return llm_fn(prompt)
         return f"'{selected_filename}' 문서를 찾을 수 없습니다."
-    # 전체에서 최근접 문서 1개 찾아서 RAG
-    # 쿼리 임베딩 fetch
     q_emb = fetch_embeddings([query])[0]
     dists = np.linalg.norm(np.stack(embeddings) - q_emb, axis=1)
     idx = int(np.argmin(dists))

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-app-deployment
+  labels:
+    app: rag-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-app
+  template:
+    metadata:
+      labels:
+        app: rag-app
+    spec:
+      containers:
+      - name: rag-app-container
+        image: gcr.io/$PROJECT_ID/rag-app:latest
+        ports:
+        - containerPort: 7860
+        # 환경변수로 Mock LLM 서비스 DNS 상황을 주입할 수 있음
+        env:
+        - name: LLM_SERVICE_HOST
+          value: "http://mock-llm-service"
+        - name: LLM_SERVICE_PORT
+          value: "8001"
+      #   volumeMounts:
+      #   - name: uploads-volume
+      #     mountPath: "/app/uploads"
+      # volumes:
+      # - name: uploads-volume
+      #   emptyDir: {}
