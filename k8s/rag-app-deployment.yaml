@@ -24,6 +24,13 @@ spec:
           value: "http://mock-llm-service"
         - name: LLM_SERVICE_PORT
           value: "8001"
+        resources:
+          requests:
+            cpu: "250m"   # 최소한 이 정도 요청(request)이 있어야 함
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
       #   volumeMounts:
       #   - name: uploads-volume
       #     mountPath: "/app/uploads"
