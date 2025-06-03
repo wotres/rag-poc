@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: gcr.io/$PROJECT_ID/mock-llm-server:latest
+        image: us-central1-docker.pkg.dev/$PROJECTID/rag-poc/mock-llm-server:latest
         ports:
         - containerPort: 8001
         resources:
