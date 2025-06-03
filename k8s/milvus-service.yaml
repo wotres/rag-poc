@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-milvus-web
+  namespace: milvus
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: my-release
+    component: proxy
+  ports:
+    - name: web
+      port: 9091
+      targetPort: 9091
+      protocol: TCP
