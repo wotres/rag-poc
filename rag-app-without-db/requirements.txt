@@ -4,4 +4,3 @@ sentence-transformers
 torch
 uvicorn
 pymupdf
-pymilvus

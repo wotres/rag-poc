@@ -1,2 +1,6 @@
 __pycache__/
 *.pkl
+*.md
+uploads/
+milvus_data/
+minio_data/
