@@ -314,12 +314,12 @@ with gr.Blocks() as demo:
         outputs=[delete_output, file_list, doc_selector, rag_file_selector]
     )
 
-    # 질의 탭 다운로드 버튼 바인딩 (Query 탭 전용)
-    download_btn.click(
-        fn=download_file,
-        inputs=[doc_selector, state_user],
-        outputs=[download_btn]
-    )
+    # # 질의 탭 다운로드 버튼 바인딩 (Query 탭 전용)
+    # download_btn.click(
+    #     fn=download_file,
+    #     inputs=[doc_selector, state_user],
+    #     outputs=[download_btn]
+    # )
 
     # RAG 등록 탭 다운로드 버튼 바인딩 (새로 추가된 부분)
     rag_download_btn.click(
