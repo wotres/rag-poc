@@ -24,7 +24,7 @@ USERS = {
 USE_MOCK = True
 UPLOAD_DIR = "uploads"
 NO_SELECTION_LABEL = "선택하지 않음"
-LLM_SERVICE_HOST = os.getenv("LLM_SERVICE_HOST", "http://0.0.0.0")
+LLM_SERVICE_HOST = os.getenv("LLM_SERVICE_HOST", "0.0.0.0")
 LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", "8001")
 
 
@@ -34,7 +34,7 @@ def call_llm(prompt: str) -> str:
     """
     if USE_MOCK:
         response = requests.post(
-            f"{LLM_SERVICE_HOST}:{LLM_SERVICE_PORT}/v1/chat/completions",
+            f"http://{LLM_SERVICE_HOST}:{LLM_SERVICE_PORT}/v1/chat/completions",
             json={"model": "mock-model", "messages": [{"role": "user", "content": prompt}]}
         )
         return response.json()["choices"][0]["message"]["content"]

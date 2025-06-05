@@ -1,6 +1,8 @@
 # 로컬 실행
 * $ python mock_llm_server.py
 * $ python app.py
+* $ cd milvus local
+* $ docker compose up -d 
 
 # 기능
 * ALL Python 구성
@@ -17,7 +19,6 @@
 # 구현 할것
 * 문서 저장 
 * gke 배포
-* 카프카 레빗앤큐 
 * s3 연결
 * 자주묻는 질문 redis 로 호출
 

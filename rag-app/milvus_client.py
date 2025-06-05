@@ -1,4 +1,5 @@
 # milvus_client.py
+import os
 
 from pymilvus import (
     connections,
@@ -8,8 +9,8 @@ from pymilvus import (
 )
 
 # Milvus 연결 정보 (환경에 따라 수정)
-MILVUS_HOST = "localhost"
-MILVUS_PORT = "19530"
+MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
+MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 
 # 1) 질문 저장용 컬렉션 이름 및 임베딩 차원
 QUESTION_COLLECTION_NAME = "user_question_collection"

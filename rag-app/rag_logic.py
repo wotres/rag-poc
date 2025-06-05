@@ -19,7 +19,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 DATA_PATH = "docs_data.pkl"
 
-LLM_SERVICE_HOST = os.getenv("LLM_SERVICE_HOST", "http://0.0.0.0")
+LLM_SERVICE_HOST = os.getenv("LLM_SERVICE_HOST", "0.0.0.0")
 LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", "8001")
 
 # (선택) 로컬에 문서와 전체 임베딩을 백업하려면 아래 리스트 유지
@@ -61,7 +61,7 @@ def fetch_embeddings(texts: list[str]) -> np.ndarray:
     - 반환: numpy.ndarray(shape=(len(texts), VECTOR_DIM))
     """
     payload = {"model": "all-MiniLM-L6-v2", "input": texts}
-    url = f"{LLM_SERVICE_HOST}:{LLM_SERVICE_PORT}/v1/embeddings"
+    url = f"http://{LLM_SERVICE_HOST}:{LLM_SERVICE_PORT}/v1/embeddings"
     resp = requests.post(url, json=payload)
     resp.raise_for_status()
     data = resp.json().get("data", [])
