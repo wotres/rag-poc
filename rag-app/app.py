@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import time
 import shutil
@@ -60,14 +58,30 @@ def get_group_dir(group: str) -> str:
 def get_current_file_list(current_user):
     """
     현재 로그인된 사용자의 그룹 디렉토리 내 PDF 파일 목록을 반환합니다.
+
+    반환값:
+        - 파일 목록을 줄바꿈(\n)으로 이어붙인 문자열
+        - Query 탭의 doc_selector 업데이트용 gr.update(...)
+        - RAG 등록 탭의 rag_file_selector 업데이트용 gr.update(...)
     """
     if not current_user:
-        return "", gr.update(choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL)
+        # 로그인 안 된 상태라면 각 Dropdown에 “선택하지 않음”만 표시
+        empty_update = gr.update(choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL)
+        return "", empty_update, empty_update
+
     user_info = USERS[current_user]
     dir_path = get_group_dir(user_info["group"])
     files = [f for f in os.listdir(dir_path) if f.lower().endswith(".pdf")]
+
+    # Dropdown choices 목록: 맨 앞에 “선택하지 않음” 추가
     choices = [NO_SELECTION_LABEL] + files
-    return "\n".join(files), gr.update(choices=choices, value=NO_SELECTION_LABEL)
+
+    # 파일 목록을 텍스트박스에 표시할 때에는 줄바꿈 문자열
+    files_str = "\n".join(files) if files else ""
+    # 두 개의 Dropdown을 동시에 업데이트
+    update_doc_selector = gr.update(choices=choices, value=NO_SELECTION_LABEL)
+    update_rag_selector = gr.update(choices=choices, value=NO_SELECTION_LABEL)
+    return files_str, update_doc_selector, update_rag_selector
 
 
 def upload_file(file_path, custom_name, current_user):
@@ -118,6 +132,8 @@ def delete_file(filename, current_user):
 def download_file(filename, current_user):
     """
     Gradio 다운로드 버튼과 연결됩니다.
+    선택된 filename이 존재하면 해당 그룹 디렉토리의 절대 경로를 반환하여
+    DownloadButton이 브라우저로 보내줄 수 있게 합니다.
     """
     if not filename or filename == NO_SELECTION_LABEL:
         return None
@@ -131,11 +147,6 @@ def download_file(filename, current_user):
 def run_query(query, selected_doc, current_user):
     """
     Gradio 질문하기 버튼과 연결됩니다.
-
-    - 1) query 임베딩 생성 → Milvus 질문 컬렉션에 저장
-    - 2) selected_doc이 없으면 → 단순 LLM 호출
-    - 3) selected_doc이 있으면 → Milvus에서 상위 3개 청크 검색 → LLM에게 prompt 전송
-    - 4) “쿼리 임베딩 + 검색된 청크 목록(파일명·청크ID·유사도·텍스트) + 최종 답변” 문자열을 합쳐서 반환
     """
     if not query:
         return "질문을 입력해주세요."
@@ -151,9 +162,7 @@ def run_query(query, selected_doc, current_user):
 
     # 2) selected_doc이 없으면 → 단순 LLM 호출
     if not selected_doc or selected_doc == NO_SELECTION_LABEL:
-        # 간단히 쿼리만 LLM에 전달
         answer = call_llm(query)
-        # 결과: “쿼리 임베딩 + 답변”
         emb_str = (
             f"쿼리 임베딩 (차원={len(q_emb)}):\n{q_emb.tolist()}\n\n"
             if q_emb is not None else ""
@@ -163,7 +172,7 @@ def run_query(query, selected_doc, current_user):
     # 3) RAG 모드: Milvus에서 selected_doc 필터로 상위 3개 청크 검색
     top_chunks = []
     if q_emb is not None:
-        expr = f"filename == '{selected_doc}'"  # 해당 파일에서만 검색
+        expr = f"filename == '{selected_doc}'"
         try:
             results = search_top_k_doc_chunks(query_emb=q_emb.tolist(), top_k=3, expr=expr)
             top_chunks = results  # [{filename, chunk_id, chunk_text, distance}, ...]
@@ -172,7 +181,6 @@ def run_query(query, selected_doc, current_user):
 
     # 4) LLM prompt 생성: 상위 청크들을 문맥으로 제공
     if not top_chunks:
-        # Milvus 검색에 실패했거나 결과가 없으면, 기본 LLM 호출
         answer = call_llm(query)
         emb_str = (
             f"쿼리 임베딩 (차원={len(q_emb)}):\n{q_emb.tolist()}\n\n"
@@ -183,7 +191,6 @@ def run_query(query, selected_doc, current_user):
     # 5) 청크 3개를 묶어 하나의 텍스트 블록으로 정리
     context_parts = []
     for idx, chunk in enumerate(top_chunks, start=1):
-        # 각 청크: {filename, chunk_id, chunk_text, distance}
         part = (
             f"--- 청크 {idx} ---\n"
             f"파일명: {chunk['filename']}\n"
@@ -216,7 +223,7 @@ def login_fn(username, password, state_user):
     user = USERS.get(username)
     if user and user["password"] == password:
         role = user["role"]
-        files_str, dropdown = get_current_file_list(username)
+        files_str, update_query, update_rag = get_current_file_list(username)
         return (
             f"로그인 성공: {role} 권한",
             gr.update(visible=False),  # 로그인 칼럼 숨기기
@@ -224,7 +231,8 @@ def login_fn(username, password, state_user):
             gr.update(visible=(role == "manager")),  # 관리자만 RAG 등록 탭 보이기
             username,
             files_str,
-            dropdown
+            update_query,
+            update_rag
         )
 
     return (
@@ -234,6 +242,7 @@ def login_fn(username, password, state_user):
         None,
         state_user,
         "",
+        gr.update(choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL),
         gr.update(choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL)
     )
 
@@ -256,46 +265,67 @@ with gr.Blocks() as demo:
             # ─ 질의 탭 ─
             with gr.TabItem("질의"):
                 query_input = gr.Textbox(label="질문 입력", lines=2)
-                doc_selector = gr.Dropdown(label="문서 선택", choices=[], value=None)
-                download_btn = gr.DownloadButton(label="PDF 다운로드")
+                doc_selector = gr.Dropdown(label="문서 선택", choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL)
+                # download_btn = gr.DownloadButton(label="PDF 다운로드")
                 query_btn = gr.Button("질문하기")
                 query_output = gr.Textbox(label="답변 및 정보", lines=20)
 
-            # ─ RAG 등록(업로드/삭제) 탭 ─ (관리자만 보임)
+            # ─ RAG 등록(업로드/삭제/다운로드) 탭 ─ (관리자만 보임)
             with gr.TabItem("RAG 등록", visible=False) as rag_tab:
                 file_input = gr.File(label="PDF 문서 업로드", file_types=[".pdf"], file_count="single")
                 name_input = gr.Textbox(label="저장할 파일명 (확장자 제외)")
                 upload_btn = gr.Button("업로드 및 인덱싱")
                 upload_output = gr.Textbox(label="업로드 결과", lines=2)
-                file_list = gr.Textbox(label="업로드된 문서 목록", lines=6)
+
+                # 업로드된 파일 목록(읽기 전용 Textbox)
+                file_list = gr.Textbox(label="업로드된 문서 목록", lines=6, interactive=False)
+
+                # RAG 등록 탭 전용: 삭제할 파일명 입력
                 delete_input = gr.Textbox(label="삭제할 파일명 입력 (예: sample.pdf)")
                 delete_btn = gr.Button("문서 삭제")
                 delete_output = gr.Textbox(label="삭제 결과", lines=2)
 
-    # 로그인 버튼 동작 바인딩
+                # ↓ 새로 추가된 부분: RAG 등록 탭에서 “문서 선택 후 다운로드” ↓
+                rag_file_selector = gr.Dropdown(label="다운로드할 문서 선택", choices=[NO_SELECTION_LABEL], value=NO_SELECTION_LABEL)
+                rag_download_btn = gr.DownloadButton(label="문서 다운로드")
+                # ↑ 여기까지 추가된 부분 ↑
+
+    # ─── 버튼 바인딩 ───
+    # 로그인 버튼 동작 바인딩 (파일 목록, Query 탭 Dropdown, RAG 탭 Dropdown 세 개를 업데이트)
     login_btn.click(
         fn=login_fn,
         inputs=[username_input, password_input, state_user],
-        outputs=[login_status, login_col, main_col, rag_tab, state_user, file_list, doc_selector]
+        outputs=[login_status, login_col, main_col, rag_tab, state_user,
+                 # 파일 목록(Textbox), Query 탭 Dropdown, RAG 탭 Dropdown
+                 file_list, doc_selector, rag_file_selector]
     )
 
-    # 업로드/삭제 버튼 동작 바인딩
+    # 업로드 버튼 동작 바인딩 (업로드 → 파일 목록 + 두 Dropdown 업데이트)
     upload_btn.click(
         fn=upload_file,
         inputs=[file_input, name_input, state_user],
-        outputs=[upload_output, file_list, doc_selector]
+        outputs=[upload_output, file_list, doc_selector, rag_file_selector]
     )
+
+    # 삭제 버튼 동작 바인딩 (삭제 → 파일 목록 + 두 Dropdown 업데이트)
     delete_btn.click(
         fn=delete_file,
         inputs=[delete_input, state_user],
-        outputs=[delete_output, file_list, doc_selector]
+        outputs=[delete_output, file_list, doc_selector, rag_file_selector]
     )
 
-    # 다운로드 버튼 바인딩
+    # 질의 탭 다운로드 버튼 바인딩 (Query 탭 전용)
     download_btn.click(
         fn=download_file,
         inputs=[doc_selector, state_user],
         outputs=[download_btn]
+    )
+
+    # RAG 등록 탭 다운로드 버튼 바인딩 (새로 추가된 부분)
+    rag_download_btn.click(
+        fn=download_file,
+        inputs=[rag_file_selector, state_user],
+        outputs=[rag_download_btn]
     )
 
     # 질문하기 버튼 바인딩
@@ -306,7 +336,7 @@ with gr.Blocks() as demo:
     )
 
 app = FastAPI()
-gr.mount_gradio_app(app, demo, path="/")
+gr.mount_gradio_app(app, demo, path="")
 
 if __name__ == "__main__":
     import uvicorn

@@ -21,9 +21,13 @@ spec:
         - containerPort: 7860
         env:
         - name: LLM_SERVICE_HOST
-          value: "http://mock-llm-service"
+          value: "mock-llm-service"
         - name: LLM_SERVICE_PORT
           value: "8001"
+        - name: MILVUS_HOST
+          value: "$MILVUS_HOST"
+        - name: MILVUS_PORT
+          value: "19530"
         resources:
           requests:
             cpu: "250m"
