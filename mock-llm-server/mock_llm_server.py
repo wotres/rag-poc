@@ -23,8 +23,9 @@ class ChatRequest(BaseModel):
 async def chat_completion(req: ChatRequest):
     last_user_msg = [m.content for m in req.messages if m.role == "user"][-1]
     dummy_response = (
-        "(Mock 응답) 참고한 RAG 파일 내용은 아래와 같습니다\n"
-        f"{last_user_msg}\n안녕하세요?\n"
+        "(Mock 응답)\n"
+        f"LLM 응답 메시지: 아래와 같은 질문을 주셨습니다.\n"
+        f"{last_user_msg}"
     )
     return {
         "choices": [{
@@ -67,4 +68,4 @@ async def create_embedding(req: EmbeddingRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("mock_llm_server:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("mock_llm_server:app", host="0.0.0.0", port=8888, reload=True)
